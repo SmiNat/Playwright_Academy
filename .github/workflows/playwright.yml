@@ -1,6 +1,8 @@
 name: Playwright Tests
 on:
-  workflow_dispatch:
+  schedule:  # added (automated schedule for tests)
+  - cron: '0 23 * * 1-5'  # added (@11:PM Monday-Friday) https://crontab.cronhub.io/
+  workflow_dispatch:  # added
   push:
     branches: [ main, master ]
   pull_request:
@@ -19,7 +21,7 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
-      run: npx playwright test
+      run: npx playwright test  # command (can specify that e.g. to selected file with tests, instead of all files)
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
