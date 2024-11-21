@@ -17,7 +17,7 @@ const randomString = (length) => {
 test.describe('API testing', () => {
     const baseURL = "https://simple-grocery-store-api.glitch.me"
     const globalProductID = 4643
-    const globalCartID = "QngbQsBgOGxnbmPrjKvvt"  // can be created @https://simple-grocery-store-api.glitch.me/carts
+    const globalCartID = "X4atdf9C2gl0xr56zIZJN"  // can be created @https://simple-grocery-store-api.glitch.me/carts
     let token;
 
     let allProductIds = async (request) => {
@@ -152,7 +152,7 @@ test.describe('API testing', () => {
                 };
             }
             else {
-                productID = allProductIds[0]
+                productID = productIds[0];
             }
 
             if (productID === undefined) {
@@ -284,6 +284,116 @@ test.describe('API testing', () => {
         });
     });
 
+
+    test('SCENARIO: Create a cart, add 2 items and replace one of them', async ({ request }) => {
+        let cartID;  // to be declared within test steps
+        let productIds = await allProductIds(request);
+        let itemIds = [];
+
+        console.log("☑️ All product IDs:", productIds);
+
+        await test.step("STEP 1: creating a new cart", async () => {
+            var response = await request.post(baseURL + "/carts");
+            var responseBody = JSON.parse(await response.text());
+            console.log("➡️ Creating a cart:", responseBody);
+
+            expect(response.status()).toBe(201);
+
+            expect(responseBody.created).toBeTruthy();
+            expect(responseBody.cartId).not.toBeNull();
+
+            cartID = responseBody.cartId;
+            // console.log("CartId:", cartID)
+        });
+
+        await test.step("STEP 2: validating the cart is empty", async () => {
+            var response = await request.get(`${baseURL}/carts/${cartID}/items`);
+            var responseBody = JSON.parse(await response.text());
+            console.log("➡️ Validating the cart is empty:", responseBody);
+
+            expect(responseBody).toHaveLength(0);
+        });
+
+        await test.step("STEP 3: adding 2 products to a cart", async () => {
+            let productsToAdd = [productIds[0], productIds[1]];
+            console.log("☑️ PRODUCTS:", productsToAdd);
+
+            for (var product of productsToAdd) {
+                console.log("☑️ Single product:", product);
+
+                var response = await request.post(`${baseURL}/carts/${cartID}/items`, {
+                    data: {
+                        productId: product
+                    }
+                });
+                var responseBody = JSON.parse(await response.text());
+                console.log("➡️ Adding product to a cart:", responseBody);
+
+                expect(response.status()).toBe(201);
+
+                expect(responseBody.created).toBeTruthy();
+                expect(responseBody.itemId).not.toBeNull();
+
+                itemIds.push(responseBody.itemId);
+            };
+            expect(itemIds.length).toBe(2);
+        });
+
+        await test.step("STEP 4: validating the cart has two products", async () => {
+            var response = await request.get(`${baseURL}/carts/${cartID}/items`);
+            var responseBody = JSON.parse(await response.text());
+            console.log("➡️ Validating the cart has two products:", responseBody);
+
+            expect(responseBody).toHaveLength(2);
+            expect(responseBody[0].productId).toBe(productIds[0]);
+            expect(responseBody[1].productId).toBe(productIds[1]);
+        });
+
+        await test.step("STEP 5: replacing a product in a cart", async () => {
+            let newProductId = [productIds[2]];  // replacing second product (itemIDs[1]) with new product
+
+            console.log("☑️ New product ID:", newProductId);
+            console.log("☑️ Item ID:", itemIds[1]);
+
+            var response = await request.put(`${baseURL}/carts/${cartID}/items/${itemIds[1]}`, {
+                data: {
+                    productId: newProductId,
+                }
+            }
+            );
+
+            expect(response.status()).toBe(204);
+        });
+
+        await test.step("STEP 6: validating the cart has two products - one old and one new", async () => {
+            var response = await request.get(`${baseURL}/carts/${cartID}/items`);
+            var responseBody = JSON.parse(await response.text());
+            console.log("➡️ Validating the cart has two products:", responseBody);
+
+            expect(responseBody).toHaveLength(2);
+            expect(responseBody[0].productId).toBe(productIds[0]);
+            expect(responseBody[1].productId).not.toBe(productIds[1]);
+
+            itemIds.push(responseBody[1].id);  // itemsIds[2]
+        });
+
+        await test.step("STEP 7: deleting a product from a cart", async () => {
+            let itemToDelete = [itemIds[0], itemIds[2]];
+            for (let item of itemToDelete) {
+                var response = await request.delete(`${baseURL}/carts/${cartID}/items/${item}`);
+                expect(response.status()).toBe(204);
+            }
+        });
+
+        await test.step("STEP 8: validating the cart is empty", async () => {
+            var response = await request.get(`${baseURL}/carts/${cartID}/items`);
+            var responseBody = JSON.parse(await response.text());
+            console.log("➡️ Validating the cart is empty:", responseBody);
+
+            expect(responseBody).toHaveLength(0);
+        });
+    });
+
     test('Create a user account and extract token', async ({ request }) => {
         // generate random email address
         let name = randomString(7);
@@ -318,13 +428,9 @@ test.describe('API testing', () => {
             }
         );
         var responseBody = await response.json();
-        console.log(responseBody);
+        console.log("➡️ List of orders:", responseBody);
         expect(response.status()).toBe(200);
 
     });
 
 });
-
-
-
-
